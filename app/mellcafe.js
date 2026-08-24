@@ -15,10 +15,8 @@ const ALL_CAFES = [
 const AREAS = ["すべて", "渋谷", "中目黒", "下北沢", "吉祥寺", "蔵前"];
 
 export default function Mellcafe() {
-  const [screen, setScreen] = useState("login");
   const [user, setUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [isSignup, setIsSignup] = useState(false);
   const [selectedArea, setSelectedArea] = useState("すべて");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [bookmarks, setBookmarks] = useState([]);
@@ -27,6 +25,8 @@ export default function Mellcafe() {
   const [dragStart, setDragStart] = useState(null);
   const [dragDelta, setDragDelta] = useState(0);
   const [toast, setToast] = useState(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [screen, setScreen] = useState("main");
 
   const filtered = selectedArea === "すべて" ? ALL_CAFES : ALL_CAFES.filter(c => c.area === selectedArea);
   const current = filtered[currentIndex];
@@ -38,17 +38,24 @@ export default function Mellcafe() {
   const handleLogin = () => {
     if (!loginForm.email || !loginForm.password) return;
     setUser({ email: loginForm.email, name: loginForm.email.split("@")[0] });
-    setScreen("main");
+    setShowLoginPrompt(false);
+    if (current && !bookmarks.includes(current.id)) {
+      setBookmarks(prev => [...prev, current.id]);
+      showToast("♥ ブックマークに保存しました");
+    }
   };
 
   const swipe = (dir) => {
     if (animating || !current) return;
+    if (dir === "right") {
+      if (!user) { setShowLoginPrompt(true); return; }
+      if (!bookmarks.includes(current.id)) {
+        setBookmarks(prev => [...prev, current.id]);
+        showToast("♥ ブックマークに保存しました");
+      }
+    }
     setDirection(dir);
     setAnimating(true);
-    if (dir === "right" && !bookmarks.includes(current.id)) {
-      setBookmarks(prev => [...prev, current.id]);
-      showToast("♥ ブックマークに保存しました");
-    }
     setTimeout(() => { setCurrentIndex(i => i + 1); setAnimating(false); setDirection(null); setDragDelta(0); }, 320);
   };
 
@@ -62,18 +69,15 @@ export default function Mellcafe() {
     : dragDelta !== 0 ? { transform: `translateX(${dragDelta}px) rotate(${dragDelta * 0.05}deg)`, transition: "none" }
     : { transform: "translateX(0)", transition: "all 0.3s" };
 
-  if (screen === "login") return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf6ec, #f5ede0)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "Georgia, serif", padding: 24 }}>
-      <div style={{ fontSize: 36, fontWeight: 700, color: colors.text, letterSpacing: "0.05em", marginBottom: 4 }}>Mellcafe</div>
-      <div style={{ fontSize: 12, color: colors.muted, letterSpacing: "0.2em", marginBottom: 40 }}>TOKYO CAFÉ DISCOVERY</div>
-      <div style={{ width: "100%", maxWidth: 360, background: colors.white, borderRadius: 24, padding: 32, boxShadow: "0 8px 40px rgba(61,32,8,0.1)" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: colors.text, marginBottom: 24, textAlign: "center" }}>{isSignup ? "アカウント作成" : "ログイン"}</div>
-        <input placeholder="メールアドレス" value={loginForm.email} onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: `1.5px solid ${colors.light}`, fontSize: 14, marginBottom: 12, outline: "none", boxSizing: "border-box", fontFamily: "Georgia, serif", color: colors.text }} />
-        <input placeholder="パスワード" type="password" value={loginForm.password} onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: `1.5px solid ${colors.light}`, fontSize: 14, marginBottom: 20, outline: "none", boxSizing: "border-box", fontFamily: "Georgia, serif", color: colors.text }} />
-        <button onClick={handleLogin} style={{ width: "100%", padding: "14px", borderRadius: 14, background: colors.primary, color: colors.white, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 16, fontFamily: "Georgia, serif" }}>{isSignup ? "登録してはじめる" : "ログイン"}</button>
-        <div style={{ textAlign: "center", fontSize: 13, color: colors.muted }}><span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setIsSignup(!isSignup)}>{isSignup ? "すでにアカウントをお持ちの方" : "アカウントをお持ちでない方"}</span></div>
-        <div style={{ margin: "20px 0", borderTop: `1px solid ${colors.light}`, position: "relative" }}><span style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: colors.white, padding: "0 12px", color: colors.muted, fontSize: 12 }}>または</span></div>
-        <button onClick={() => { setUser({ email: "google@user.com", name: "Googleユーザー" }); setScreen("main"); }} style={{ width: "100%", padding: "12px", borderRadius: 14, background: colors.white, border: `1.5px solid ${colors.light}`, fontSize: 14, cursor: "pointer", color: colors.text, fontFamily: "Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>🔍 Googleでログイン</button>
+  const LoginPrompt = () => (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: colors.white, borderRadius: 24, padding: 32, width: "100%", maxWidth: 360 }}>
+        <div style={{ fontSize: 20, fontWeight: 700, color: colors.text, marginBottom: 8, textAlign: "center" }}>ブックマークに保存する</div>
+        <div style={{ fontSize: 13, color: colors.muted, textAlign: "center", marginBottom: 24 }}>保存にはログインが必要です。<br/>ログインするとお気に入りのカフェをいつでも確認できます。</div>
+        <input placeholder="メールアドレス" value={loginForm.email} onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: `1.5px solid ${colors.light}`, fontSize: 14, marginBottom: 12, outline: "none", boxSizing: "border-box", color: colors.text }} />
+        <input placeholder="パスワード" type="password" value={loginForm.password} onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: `1.5px solid ${colors.light}`, fontSize: 14, marginBottom: 16, outline: "none", boxSizing: "border-box", color: colors.text }} />
+        <button onClick={handleLogin} style={{ width: "100%", padding: "14px", borderRadius: 14, background: colors.primary, color: colors.white, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>ログイン</button>
+        <button onClick={() => setShowLoginPrompt(false)} style={{ width: "100%", padding: "12px", borderRadius: 14, background: colors.light, color: colors.muted, border: "none", fontSize: 14, cursor: "pointer" }}>あとで（このまま見る）</button>
       </div>
     </div>
   );
@@ -114,7 +118,8 @@ export default function Mellcafe() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: `linear-gradient(135deg, #fdf6ec, #f5ede0)`, fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #fdf6ec, #f5ede0)", fontFamily: "Georgia, serif", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {showLoginPrompt && <LoginPrompt />}
       {toast && (<div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: colors.text, color: colors.white, padding: "10px 20px", borderRadius: 20, fontSize: 13, zIndex: 100, whiteSpace: "nowrap" }}>{toast}</div>)}
       <div style={{ width: "100%", maxWidth: 480, padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
@@ -122,8 +127,12 @@ export default function Mellcafe() {
           <div style={{ fontSize: 10, color: colors.muted, letterSpacing: "0.15em" }}>TOKYO CAFÉ DISCOVERY</div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => setScreen("bookmarks")} style={{ background: bookmarks.length > 0 ? colors.primary : colors.light, border: "none", borderRadius: 20, padding: "7px 14px", cursor: "pointer", color: bookmarks.length > 0 ? colors.white : colors.muted, fontSize: 13, fontWeight: 600 }}>♥ {bookmarks.length}</button>
-          <div style={{ fontSize: 12, color: colors.muted }}>{user?.name}</div>
+          <button onClick={() => user ? setScreen("bookmarks") : setShowLoginPrompt(true)} style={{ background: bookmarks.length > 0 ? colors.primary : colors.light, border: "none", borderRadius: 20, padding: "7px 14px", cursor: "pointer", color: bookmarks.length > 0 ? colors.white : colors.muted, fontSize: 13, fontWeight: 600 }}>♥ {bookmarks.length}</button>
+          {user ? (
+            <button onClick={() => setUser(null)} style={{ background: "none", border: `1px solid ${colors.light}`, borderRadius: 20, padding: "7px 14px", cursor: "pointer", color: colors.muted, fontSize: 12 }}>{user.name}</button>
+          ) : (
+            <button onClick={() => setShowLoginPrompt(true)} style={{ background: "none", border: `1px solid ${colors.light}`, borderRadius: 20, padding: "7px 14px", cursor: "pointer", color: colors.muted, fontSize: 12 }}>ログイン</button>
+          )}
         </div>
       </div>
       <div style={{ width: "100%", maxWidth: 480, padding: "16px 20px 0", display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
@@ -132,7 +141,7 @@ export default function Mellcafe() {
       <div style={{ flex: 1, width: "100%", maxWidth: 480, padding: "20px 20px 0", display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
         {current ? (
           <>
-            {filtered[currentIndex + 1] && (<div style={{ position: "absolute", top: 28, width: "calc(100% - 40px)", height: 480, borderRadius: 24, background: colors.light, transform: "scale(0.95)", zIndex: 1 }} />)}
+            {filtered[currentIndex + 1] && (<div style={{ position: "absolute", top: 28, width: "calc(100% - 40px)", height: 480, borderRadius: 24, background: colors.light, transform: "scale(0.95)", zIndex: 1, pointerEvents: "none" }} />)}
             <div style={{ ...cardStyle, width: "100%", zIndex: 2, cursor: "grab", userSelect: "none" }} onMouseDown={handleDragStart} onMouseMove={handleDragMove} onMouseUp={handleDragEnd} onMouseLeave={handleDragEnd} onTouchStart={handleDragStart} onTouchMove={handleDragMove} onTouchEnd={handleDragEnd}>
               {dragDelta > 40 && <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10, background: "#4caf50", color: colors.white, padding: "6px 14px", borderRadius: 8, fontSize: 16, fontWeight: 700, transform: "rotate(-15deg)" }}>SAVE ♥</div>}
               {dragDelta < -40 && <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10, background: "#ef5350", color: colors.white, padding: "6px 14px", borderRadius: 8, fontSize: 16, fontWeight: 700, transform: "rotate(15deg)" }}>PASS</div>}
@@ -156,7 +165,7 @@ export default function Mellcafe() {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
+            <div style={{ display: "flex", gap: 20, marginTop: 20, position: "relative", zIndex: 3 }}>
               <button onClick={() => swipe("left")} style={{ width: 60, height: 60, borderRadius: "50%", background: colors.white, border: `2px solid ${colors.light}`, fontSize: 24, cursor: "pointer", boxShadow: "0 4px 16px rgba(61,32,8,0.1)" }}>✕</button>
               <button onClick={() => swipe("right")} style={{ width: 60, height: 60, borderRadius: "50%", background: colors.primary, border: "none", fontSize: 24, cursor: "pointer", boxShadow: "0 4px 20px rgba(200,96,42,0.35)", color: colors.white }}>♥</button>
             </div>
